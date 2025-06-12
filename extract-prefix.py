@@ -118,4 +118,8 @@ def main(argv):
     return 0
 
 if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print("usage: extract-prefix path/path/path new_branch_name")
+        sys.exit(-1)
+
     sys.exit(main(sys.argv[1:]) or 0)
