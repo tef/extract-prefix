@@ -5,11 +5,25 @@ import sys
 import pygit2
 
 
-def filter_tree(repo, tree):
+GIT_EMPTY_DIR = pygit2.Oid(hex="4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+
+def filter_tree(repo, tree, prefix):
+    for path in prefix:
+        obj = repo.get(tree)
+        new_tree = None
+        for entry in obj:
+            if entry.name == path:
+                new_tree = entry.id
+
+        if new_tree is None:
+            return GIT_EMPTY_DIR
+        else:
+            tree = new_tree
+            
     return tree
 
 
-def filter_branch(repo, head):
+def filter_branch(repo, head, prefix):
     commits = {}
     children = {}
     parent_count = {}
@@ -56,7 +70,7 @@ def filter_branch(repo, head):
         c = commits[idx]
 
         new_parents = [replaces[p] for p in c.parent_ids]
-        new_tree = filter_tree(repo, c.tree_id)
+        new_tree = filter_tree(repo, c.tree_id, prefix)
 
         new_idx = repo.create_commit(
                 None, 
@@ -80,17 +94,18 @@ def filter_branch(repo, head):
 def main():
     repo_dir = os.getcwd()
 
-    print("Opening git repo in", repo_dir)
+    prefix = ["jazz"]
+
+    print("repo", repo_dir)
     repo = pygit2.Repository(repo_dir)
 
     branch = repo.head
-    print("Branch", branch.shorthand)
-
     head = branch.target
 
-    print("Head", head)
+    print("branch", branch.shorthand)
+    print("head", head)
 
-    new_head = filter_branch(repo, head)
+    new_head = filter_branch(repo, head, prefix)
 
     print("new head", new_head)
 
