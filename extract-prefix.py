@@ -6,13 +6,14 @@ import pygit2
 
 
 GIT_EMPTY_DIR = pygit2.Oid(hex="4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+GIT_DIR_MODE = 0o040_000
 
 def filter_tree(repo, tree, prefix):
     for path in prefix:
         obj = repo.get(tree)
         new_tree = None
         for entry in obj:
-            if entry.name == path:
+            if entry.name == path and entry.filemode == GIT_DIR_MODE:
                 new_tree = entry.id
 
         if new_tree is None:
@@ -55,7 +56,7 @@ def filter_branch(repo, head, prefix):
         parent_count[idx] = len(c.parent_ids)
 
 
-    print("commits", len(commits))
+    # print("commits", len(commits))
 
     search = collections.deque(tails)
     counts = dict(parent_count)
@@ -65,7 +66,6 @@ def filter_branch(repo, head, prefix):
     while search:
         idx = search.popleft()
         
-        print("commit", idx)
 
         c = commits[idx]
 
@@ -82,6 +82,7 @@ def filter_branch(repo, head, prefix):
         )
 
         replaces[idx] = new_idx
+        # print("commit", idx, "->", new_idx)
 
         for child in children[idx]:
             counts[child] -= 1
@@ -91,25 +92,30 @@ def filter_branch(repo, head, prefix):
     return replaces[head]
 
 
-def main():
+def main(argv):
     repo_dir = os.getcwd()
 
-    prefix = ["jazz"]
+    prefix = argv[0].split("/")
+    new_branch = argv[1]
 
-    print("repo", repo_dir)
+    print("opening repo", repo_dir)
     repo = pygit2.Repository(repo_dir)
 
     branch = repo.head
     head = branch.target
 
-    print("branch", branch.shorthand)
-    print("head", head)
+    print("splitting out", "/".join(prefix), "of", branch.shorthand)
 
     new_head = filter_branch(repo, head, prefix)
 
+    print("old head", head)
     print("new head", new_head)
+
+    repo.branches.create(new_branch, repo.get(new_head), force=True)
+
+    print("overwrote branch", new_branch)
 
     return 0
 
 if __name__ == '__main__':
-    sys.exit(main() or 0)
+    sys.exit(main(sys.argv[1:]) or 0)
