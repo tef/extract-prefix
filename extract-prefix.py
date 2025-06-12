@@ -1,3 +1,12 @@
+"""
+    given a branch, and a path to a subdirectory, create a new branch
+    with only the contents in that subdirectory
+
+    if a commit does not have any relevant files, it will still be
+    included in the new branch, just with an empty directory
+
+"""
+
 import collections
 import os
 import sys
@@ -9,6 +18,11 @@ GIT_EMPTY_DIR = pygit2.Oid(hex="4b825dc642cb6eb9a060e54bf8d69288fbee4904")
 GIT_DIR_MODE = 0o040_000
 
 def filter_tree(repo, tree, prefix):
+    """
+        given ["a","b", "c"] walk the tree objects in the repo
+        and return the tree that represents a/b/c
+    """
+
     for path in prefix:
         obj = repo.get(tree)
         new_tree = None
@@ -28,6 +42,8 @@ def filter_branch(repo, head, prefix):
     commits = {}
     children = {}
     parent_count = {}
+
+    # walk the commits from head to tail
 
     search = collections.deque([head])
     walked = set(search)
@@ -58,6 +74,9 @@ def filter_branch(repo, head, prefix):
 
     # print("commits", len(commits))
 
+    # walk the commits from tail to head
+    # in topological order
+
     search = collections.deque(tails)
     counts = dict(parent_count)
 
@@ -66,7 +85,6 @@ def filter_branch(repo, head, prefix):
     while search:
         idx = search.popleft()
         
-
         c = commits[idx]
 
         new_parents = [replaces[p] for p in c.parent_ids]
@@ -90,7 +108,6 @@ def filter_branch(repo, head, prefix):
                 search.append(child)
 
     return replaces[head]
-
 
 def main(argv):
     repo_dir = os.getcwd()
