@@ -119,6 +119,10 @@ def filter_branch(repo, head, prefix):
             else:
                 changed_parents.add(p)
 
+        if unchanged_parent is not None and changed_parents:
+            if all(p in new_descendents[unchanged_parent] for p in changed_parents):
+                changed_parents = set()
+
         if unchanged_parent is not None and not changed_parents:
             new_idx = unchanged_parent
             skipped.add(idx)
