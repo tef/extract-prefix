@@ -2,8 +2,9 @@
     given a branch, and a path to a subdirectory, create a new branch
     with only the contents in that subdirectory
 
-    if a commit does not have any relevant files, it will still be
-    included in the new branch, just with an empty directory
+    skips over commits that are identical to their parent,
+    or identical to all parents, and one parent is the common
+    descendent of all.
 
 """
 

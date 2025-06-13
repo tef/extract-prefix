@@ -8,4 +8,7 @@ $ env/bin/python3 ./extract-prefix.py PATH NAME
 
 Creates a new git branch of NAME with only files found inside PATH.
 
-Does not skip over commits if they are empty / have no files in PATH.
+Skips over commits that have an identical tree to their parent,
+or identical to all parents, and they all descend from a single parent.
+
+Should produce same output as `git subtree split --prefix PATH -b NAME`
