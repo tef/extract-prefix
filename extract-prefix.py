@@ -41,24 +41,25 @@ def filter_tree(repo, tree, prefix):
 def filter_branch(repo, head, prefix):
     commits = {}
     children = {}
-    parent_count = {}
+    parents = {}
+    trees = {}
+    tails = set() # initial commits
 
     # walk the commits from head to tail
 
     search = collections.deque([head])
     walked = set(search)
-    tails = set()
 
     while search:
         idx = search.popleft()
-
         c = repo.get(idx)
+
         commits[idx] = c
+        parents[idx] = list(c.parent_ids)
+        trees[idx] = filter_tree(repo, c.tree_id, prefix)
 
         if idx not in children:
             children[idx] = set()
-        if not c.parent_ids:
-            tails.add(idx)
 
         for p in c.parent_ids:
             if p not in children:
@@ -68,17 +69,17 @@ def filter_branch(repo, head, prefix):
             if p not in walked:
                 search.append(p)
                 walked.add(p)
-
-        parent_count[idx] = len(c.parent_ids)
+        if not c.parent_ids:
+            tails.add(idx)
 
 
     # print("commits", len(commits))
 
     # walk the commits from tail to head
-    # in topological order
+    # in topological order, and write new branch
 
     search = collections.deque(tails)
-    counts = dict(parent_count)
+    counts = { idx: len(p) for idx, p in parents.items()}
 
     replaces = {}
 
@@ -87,11 +88,11 @@ def filter_branch(repo, head, prefix):
         
         c = commits[idx]
 
-        new_parents = [replaces[p] for p in c.parent_ids]
-        new_tree = filter_tree(repo, c.tree_id, prefix)
+        new_parents = [replaces[p] for p in parents[idx]]
+        new_tree = trees[idx]
 
         new_idx = repo.create_commit(
-                None, 
+                None,  # ref name
                 c.author, 
                 c.committer, 
                 c.message,
@@ -112,7 +113,7 @@ def filter_branch(repo, head, prefix):
 def main(argv):
     repo_dir = os.getcwd()
 
-    prefix = argv[0].split("/")
+    prefix = [p for p in argv[0].split("/") if p]
     new_branch = argv[1]
 
     print("opening repo", repo_dir)
