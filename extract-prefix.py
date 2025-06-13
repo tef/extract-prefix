@@ -34,7 +34,7 @@ def filter_tree(repo, tree, prefix):
             return GIT_EMPTY_DIR
         else:
             tree = new_tree
-            
+
     return tree
 
 
@@ -44,11 +44,13 @@ def filter_branch(repo, head, prefix):
     parents = {}
     trees = {}
     tails = set() # initial commits
+    # first_parent = {}
 
     # walk the commits from head to tail
 
     search = collections.deque([head])
     walked = set(search)
+    # first_parent[head] = 0
 
     while search:
         idx = search.popleft()
@@ -60,6 +62,10 @@ def filter_branch(repo, head, prefix):
 
         if idx not in children:
             children[idx] = set()
+
+        # fp = first_parent.get(idx)
+        # if fp is not None and c.parent_ids:
+        #    first_parent[c.parent_ids[0]] = fp + 1
 
         for p in c.parent_ids:
             if p not in children:
@@ -82,32 +88,68 @@ def filter_branch(repo, head, prefix):
     counts = { idx: len(p) for idx, p in parents.items()}
 
     replaces = {}
+    skipped = set()
+    new_descendents = {}
 
     while search:
         idx = search.popleft()
-        
+
         c = commits[idx]
-
-        new_parents = [replaces[p] for p in parents[idx]]
         new_tree = trees[idx]
+        new_parents = []
 
-        new_idx = repo.create_commit(
-                None,  # ref name
-                c.author, 
-                c.committer, 
-                c.message,
-                new_tree,
-                new_parents,
-        )
+        unchanged_parent = None
+        changed_parents = set()
+
+        for old in parents[idx]:
+            p = replaces[old]
+            if p not in new_parents:
+                new_parents.append(p)
+
+            if trees[old] == new_tree:
+                if unchanged_parent is None:
+                    unchanged_parent = p
+                elif p in new_descendents[unchanged_parent]:
+                    pass
+                elif unchanged_parent in new_descendents[p]:
+                    unchanged_parents = p
+                else:
+                    changed_parents.add(p)
+            else:
+                changed_parents.add(p)
+
+        if unchanged_parent is not None and not changed_parents:
+            new_idx = unchanged_parent
+            skipped.add(idx)
+        else:
+
+            new_idx = repo.create_commit(
+                    None,  # ref name
+                    c.author,
+                    c.committer,
+                    c.message,
+                    new_tree,
+                    new_parents,
+            )
+
+            d = set()
+            for p in new_parents:
+                d.add(p)
+                d.update(new_descendents.get(p, ()))
+
+            new_descendents[new_idx] = d
 
         replaces[idx] = new_idx
+
         # print("commit", idx, "->", new_idx)
+        # print(d)
 
         for child in children[idx]:
             counts[child] -= 1
             if counts[child] == 0:
                 search.append(child)
 
+    print("skipped", len(skipped))
     return replaces[head]
 
 def main(argv):
